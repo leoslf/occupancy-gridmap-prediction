@@ -35,7 +35,7 @@ nb_samples_ = 0.
 for i, sample_batched in enumerate(train_loader):
     # measure data loading time
     input = sample_batched['image']
-    target = sample_batched['landmarks']
+    target = sample_batched['image_gt']
 
     batch_samples = input.size(0)
 

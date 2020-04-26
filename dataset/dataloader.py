@@ -24,7 +24,7 @@ class FrontierPredictionDataset(Dataset):
         y_name = os.path.join(self.root_dir, 'submaps_gt', self.imgs[idx])
         img_x = Image.open(x_name)
         img_y = Image.open(y_name)
-        sample = {'image': img_x, 'landmarks': img_y}
+        sample = {'image': img_x, 'image_gt': img_y}
         if self.transform is not None:
             sample = self.transform(sample)
         return sample

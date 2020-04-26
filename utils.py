@@ -2,10 +2,14 @@ import shutil
 import torch
 import sys
 import os
-from config import config
+# from config import config
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+import yaml
+from graphviz import Digraph
+import torch
+from torch.autograd import Variable
 
 def time_string():
     ISOTIMEFORMAT='%Y-%m-%d %X'
@@ -31,9 +35,8 @@ def save_checkpoint(state, is_best, save_path, filename):
         bestname = os.path.join(save_path, 'model_best.pth.tar')
         shutil.copyfile(filename, bestname)
 
-def adjust_learning_rate(optimizer, epoch, gammas, schedule):
+def adjust_learning_rate(lr,optimizer, epoch, gammas, schedule):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = config.learning_rate
     assert len(gammas) == len(schedule), "length of gammas and schedule should be equal"
     for (gamma, step) in zip(gammas, schedule):
         if (epoch >= step):
@@ -43,6 +46,30 @@ def adjust_learning_rate(optimizer, epoch, gammas, schedule):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     return lr
+
+
+
+class Config():
+    def __init__(self,configFile):
+        self.configFile=configFile
+        with open(self.configFile,'r') as f:
+            config=yaml.load(f)
+            print("getting hypeparameters:\n",config)
+            if config:
+                for k,v in config.items():
+                    setattr(self,k,v)
+
+    def has(self,name):
+        return hasattr(self,name)
+
+    def add(self,name=None,value=None):
+        if not hasattr(self,name):
+            setattr(self, name, value)
+            with open(self.configFile,'a') as f:
+                f.write(str(name)+": "+str(value)+'\n')
+        else:
+            print('\'{}\' already exists in \'config\' , its values is {} , maybe you just want to change its value?'.format(name,getattr(self,name)))
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -209,3 +236,56 @@ def dataset_split(dataset, train_frac):
     train_data, val_data, test_data = torch.utils.data.random_split(
         dataset, (train_length, valid_length, test_length))
     return train_data, val_data, test_data
+
+
+
+
+
+def make_dot(var, params=None):
+    """ Produces Graphviz representation of PyTorch autograd graph
+    Blue nodes are the Variables that require grad, orange are Tensors
+    saved for backward in torch.autograd.Function
+    Args:
+        var: output Variable
+        params: dict of (name, Variable) to add names to node that
+            require grad (TODO: make optional)
+    """
+    if params is not None:
+        assert isinstance(params.values()[0], Variable)
+        param_map = {id(v): k for k, v in params.items()}
+
+    node_attr = dict(style='filled',
+                     shape='box',
+                     align='left',
+                     fontsize='12',
+                     ranksep='0.1',
+                     height='0.2')
+    dot = Digraph(node_attr=node_attr, graph_attr=dict(size="12,12"))
+    seen = set()
+
+    def size_to_str(size):
+        return '('+(', ').join(['%d' % v for v in size])+')'
+
+    def add_nodes(var):
+        if var not in seen:
+            if torch.is_tensor(var):
+                dot.node(str(id(var)), size_to_str(var.size()), fillcolor='orange')
+            elif hasattr(var, 'variable'):
+                u = var.variable
+                name = param_map[id(u)] if params is not None else ''
+                node_name = '%s\n %s' % (name, size_to_str(u.size()))
+                dot.node(str(id(var)), node_name, fillcolor='lightblue')
+            else:
+                dot.node(str(id(var)), str(type(var).__name__))
+            seen.add(var)
+            if hasattr(var, 'next_functions'):
+                for u in var.next_functions:
+                    if u[0] is not None:
+                        dot.edge(str(id(u[0])), str(id(var)))
+                        add_nodes(u[0])
+            if hasattr(var, 'saved_tensors'):
+                for t in var.saved_tensors:
+                    dot.edge(str(id(t)), str(id(var)))
+                    add_nodes(t)
+    add_nodes(var.grad_fn)
+    return dot
