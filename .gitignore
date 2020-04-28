@@ -3,3 +3,11 @@
 runs/
 save/
 *.pyc
+
+*.log
+*.err
+*.out
+
+*.pth
+frontiers_dataset/*
+*.tar.gz

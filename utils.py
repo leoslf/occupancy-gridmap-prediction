@@ -5,6 +5,8 @@ import os
 # from config import config
 import numpy as np
 import time
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import yaml
 from graphviz import Digraph
@@ -22,6 +24,8 @@ def convert_secs2time(epoch_time):
     need_secs = int(epoch_time - 3600*need_hour - 60*need_mins)
     return need_hour, need_mins, need_secs
 
+def secs2time_string(epoch_time):
+    return "{:02d}:{:02d}:{:02d}".format(*convert_secs2time(epoch_time))
 
 def print_log(print_string, log):
     print("{}".format(print_string))

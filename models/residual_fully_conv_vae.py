@@ -14,6 +14,8 @@ from torch.autograd import Variable
 from collections import OrderedDict
 import typing
 
+from models.base_model import *
+
 class ResidualFullyConvVAE(nn.Module):
     def __init__(self, input_size, latent_encoding_channels=16, skip_connection_type='concat'):
         super(ResidualFullyConvVAE, self).__init__()
@@ -230,6 +232,33 @@ class ResidualFullyConvVAE(nn.Module):
         std = logvariance.mul(0.5).exp_()
         eps = Variable(std.data.new(std.size()).normal_())
         return eps.mul(std).add_(mu)
+
+class ResidualFullyConvVAEModel(BaseModel):
+    @property
+    def dataset_split_ratio(self):
+        return 0.75
+    
+    @property
+    def model(self):
+        return ResidualFullyConvVAE(64,
+                                    latent_encoding_channels=16,
+                                    skip_connection_type='add')
+
+    def loss_function(self, x, ground_truth):
+        # feed in network
+        output, latent_mu, latent_logvar = self.model(x)
+
+        loss = loss_function(output,
+                             ground_truth,
+                             loss_1="BCE",
+                             mu=latent_mu,
+                             logvar=latent_logvar)
+        return output, loss
+    
+    @property
+    def GT_key(self):
+        return "image"
+
 
 
 if __name__ == '__main__':

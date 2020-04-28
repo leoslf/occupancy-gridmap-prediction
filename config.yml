@@ -1,11 +1,11 @@
 model: UNET #VAE,UNET,GAN
 ### Data path
-txt_file: '/home/micrl/Documents/kay/catkin_ws/src/vae_map_prediction/frontiers_dataset/submaps/index.txt'
-root_dir: '/home/micrl/Documents/kay/catkin_ws/src/vae_map_prediction/frontiers_dataset'
+txt_file: './frontiers_dataset/submaps/index.txt'
+root_dir: './frontiers_dataset'
 
 
 # Optimization options
-epochs: 450
+epochs: 1 # 450
 batch_size: 128
 learning_rate: 1.0e-4
 momentum: 0.9
@@ -14,7 +14,7 @@ schedule: [180, 450] # Decrease learning rate at these epochs.
 gammas: [0.1, 0.01] # LR is multiplied by gamma on schedule, number of gammas should be equal to schedule
 
 # Checkpoints
-print_freq: 200
+print_freq: 1 # 200
 save_path: './save' # Folder to save checkpoints and log.
 resume: '' # path to latest checkpoint (default: none)
 start_epoch: 0
@@ -30,5 +30,5 @@ num_workers: 16
 # Random seed
 seed: 2020    # Optimization options
 
-val_step: 20
-vis_step: 20
+val_step: 1 # 20
+vis_step: 1 # 20

@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
+from models.base_model import *
+
 
 class ConvBlock(nn.Module):
     """ implement conv+ReLU two times """
@@ -146,6 +148,19 @@ class UNet(nn.Module):
         out = torch.sigmoid(out)
 
         return out
+
+class UNetModel(BaseModel):
+    @property
+    def dataset_split_ratio(self):
+        return 0.8
+    
+    def prepare_model(self):
+        return UNet()
+
+    def loss_function(self, x, ground_truth):
+        output = self.model(x)
+        loss = loss_function(output, ground_truth, loss_1="BCE")
+        return output, loss
 
 
 if __name__ == '__main__':
