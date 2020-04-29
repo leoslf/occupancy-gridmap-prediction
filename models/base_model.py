@@ -14,7 +14,7 @@ import torch
 from torch import optim
 from torch.utils.data import DataLoader
 import torchvision.utils as vutils
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 import dataset.augmentations as aug
 import utils
@@ -143,8 +143,7 @@ class BaseModel(object):
         # Summary Writer for Tensorboard
         self.writer = SummaryWriter()
         # TODO: Attempt to remove error
-        # self.writer.add_graph(self.net.module, self.dummy_input)
-        self.writer.add_graph(self.net, self.dummy_input)
+        self.writer.add_graph(self.net.module, self.dummy_input)
 
     def log_misc_info(self):
         misc_info = {
