@@ -17,7 +17,6 @@ class CustomEarlyStopping(EarlyStopping):
 
 class BaseModel:
     def __init__(self,
-                 # epochs = 1000,
                  verbose = 2,
                  use_multiprocessing = False,
                  compiled = False,
@@ -29,8 +28,6 @@ class BaseModel:
         self.compiled = compiled
         self.epochs = self.config.epochs
         self.verbose = verbose
-        # self.validation_split = validation_split
-        # self.testing_split = testing_split
         self.use_multiprocessing = use_multiprocessing
         self.__dict__.update(kwargs)
 
@@ -38,12 +35,6 @@ class BaseModel:
 
         trainval_df, self.testing_df = train_test_split(df, test_size = self.testing_split, random_state = 6487001)
         self.train_df, self.validation_df = train_test_split(trainval_df, test_size = self.validation_split * (1 - self.testing_split), random_state = 6487002)
-
-        # RandomCenterCrop(),
-        # RandomVerticalFlip(),
-        # Resize((64, 64)),
-        # Grayscale(1),
-        # ToTensor()
 
         self.train_img_generator = ImageDataGenerator(
                                     preprocessing_function = self.preprocessing_function,
@@ -55,14 +46,15 @@ class BaseModel:
                                     **self.data_generator_kwargs)
 
 
-        self.train_generator = self.get_generator(self.train_img_generator, self.train_df, batch_size = self.config.batch_size, interpolation = "lanczos:random_center", **kwargs)
-        self.validation_generator = self.get_generator(self.test_img_generator, self.validation_df, batch_size = self.config.batch_size, **kwargs)
-        self.test_generator = self.get_generator(self.test_img_generator, self.testing_df, batch_size = 1, **kwargs) # , "testing", **kwargs)
+        self.train_generator = self.get_generator(self.train_img_generator, self.train_df, batch_size = self.config.batch_size, interpolation = "lanczos:random_center", **self.generator_kwargs)
+        self.validation_generator = self.get_generator(self.test_img_generator, self.validation_df, batch_size = self.config.batch_size, **self.generator_kwargs)
+        self.test_generator = self.get_generator(self.test_img_generator, self.testing_df, batch_size = 1, **self.generator_kwargs)
+
+        self.construct_model()
+
 
         self.init()
-        self.input_layer = Input(self.input_shape)
-        self.output_layer = self.prepare_model(self.input_layer)
-        self.model = Model(self.input_layer, self.output_layer, name = self.name)
+
         self.model.compile(loss=self.loss, optimizer=self.optimizer, metrics=self.metrics)
 
         try:
@@ -74,12 +66,27 @@ class BaseModel:
             self.model.compile(loss = self.loss, optimizer = self.optimizer, metrics = self.metrics)
             self.logger.debug("compiled: %s" % self.name)
 
-        # self.logger.info(capture_stdout(self.model.summary))
-        self.model.summary()
+        self.logger.info(capture_stdout(self.model.summary))
+        # self.model.summary()
+
+    def construct_model(self):
+        self.input_layer = Input(self.input_shape)
+        self.output_layer = self.prepare_model(self.input_layer)
+        self.model = Model(self.input_layer, self.output_layer, name = self.name)
 
     @property
     def config_filename(self):
         return "config.yml"
+
+    @property
+    def class_mode(self):
+        raise NotImplementedError
+
+    @property
+    def generator_kwargs(self):
+        return {
+            "class_mode": self.class_mode
+        }
 
     def prepare_config(self):
         return utils.Config(self.config_filename)
@@ -136,10 +143,7 @@ class BaseModel:
         return os.path.join(self.config.root_dir, "submaps_gt")
 
     def get_generator(self, data_generator, df, **kwargs):
-        return self.flow_from_dataframe(data_generator, df, directory = self.x_directory, directory_y = self.y_directory, class_mode = "image", **kwargs)
-        # x_generator = self.flow_from_dataframe(data_generator, df, self.x_directory, **kwargs)
-        # y_generator = self.flow_from_dataframe(data_generator, df, self.y_directory, **kwargs)
-        # return x_generator, y_generator
+        return self.flow_from_dataframe(data_generator, df, directory = self.x_directory, directory_y = self.y_directory, **kwargs)
 
     @property
     def optimizer(self):

@@ -33,6 +33,7 @@ with warnings.catch_warnings():
     from keras.utils import generic_utils
 
 from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,25 @@ class TrainValTensorBoard(TensorBoard):
         super().on_train_end(logs)
         self.val_writer.close()
 
+def make_image(tensor):
+    """
+    Convert an numpy representation image to Image protobuf.
+    Copied from https://github.com/lanpa/tensorboard-pytorch/
+    """
+    from PIL import Image
+    logger.info("tensor: %r", tensor)
+    height, width, channel = tensor.shape
+    image = Image.fromarray(tensor)
+    import io
+    output = io.BytesIO()
+    image.save(output, format='PNG')
+    image_string = output.getvalue()
+    output.close()
+    return tf.Summary.Image(height=height,
+                         width=width,
+                         colorspace=channel,
+                         encoded_image_string=image_string)
+
 class PredictionVisualizer(Callback):
     def __init__(self, prefix, generator, step, log_dir = "./logs", **kwargs):
         # Make the original `TensorBoard` log to a subdirectory 'training'
@@ -105,21 +125,48 @@ class PredictionVisualizer(Callback):
         self.writer = tf.summary.FileWriter(self.log_dir)
         super().__init__(**kwargs)
 
-        self.X, self.ground_truth = generator
+        # logger.info("vars(generator): %r", vars(generator))
+
+        # self.X, self.ground_truth = generator
+        self.generator = generator
         self.step = step
 
     def on_epoch_end(self, epoch, logs = None):
         logs = logs or {}
         
         if epoch % self.step == 0:
-            prediction = self.model.predict_generator(self.X)
-            self.write_images({
-                "images": self.X,
-                "ground_truth": self.ground_truth,
-                "prediction": prediction
-            })
+            # prediction = self.model.predict_generator(self.X)
+            prediction = self.model.predict_generator(self.generator)
 
-    def write_images(self, dict):
-        for (key, value) in dict.items():
-            self.writer.add_image(key, value)
+            self.write_images(prediction, epoch)
+            # {
+            #     "input_groundtruth": self.generator,
+            #     # "ground_truth": self.ground_truth,
+            #     "prediction": prediction
+            # }, epoch)
+
+    def make_grid(self, img_batch, ncols = 8):
+        batch_size, height, width, intensity = K.int_shape(img_batch)
+        nrows = batch_size // ncols
+        assert batch_size == nrows * ncols
+        result = K.reshape(img_batch, (nrows, ncols, height, width, intensity))
+        result = K.permute_dimensions(result, (1, 0, 2, 3, 4))
+        result = K.reshape(result, (1, height * nrows, width * ncols, intensity))
+
+        return result
+
+
+    def write_image(self, key, img, epoch):
+        # image = make_image(img)
+        with tf.Session() as sess:
+            summary = tf.summary.image(key, self.make_grid(img))
+            self.writer.add_summary(summary.eval(), epoch)
+
+    def write_images(self, prediction, epoch):
+        for (X_batch, ground_truth_batch) in self.generator:
+            self.write_image("input", X_batch, epoch)
+            self.write_image("ground_truth", ground_truth_batch, epoch)
+
+        for batch in prediction:
+            self.write_image("prediction", batch, epoch)
 
