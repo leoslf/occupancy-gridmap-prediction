@@ -11,3 +11,5 @@ save/
 *.pth
 frontiers_dataset/*
 *.tar.gz
+
+logs/

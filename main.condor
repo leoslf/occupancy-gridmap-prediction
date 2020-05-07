@@ -5,7 +5,7 @@ notification	= Never
 notify_user	= 
 getenv		= True
 
-name		= main
+name		= __main__
 # main 
 executable 	= /usr/bin/python 
 # command line arguments
