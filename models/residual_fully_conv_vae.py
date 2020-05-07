@@ -238,8 +238,7 @@ class ResidualFullyConvVAEModel(BaseModel):
     def dataset_split_ratio(self):
         return 0.75
     
-    @property
-    def model(self):
+    def prepare_model(self):
         return ResidualFullyConvVAE(64,
                                     latent_encoding_channels=16,
                                     skip_connection_type='add')

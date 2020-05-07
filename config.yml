@@ -5,7 +5,7 @@ root_dir: './frontiers_dataset'
 
 
 # Optimization options
-epochs: 1 # 450
+epochs: 450
 batch_size: 128
 learning_rate: 1.0e-4
 momentum: 0.9
