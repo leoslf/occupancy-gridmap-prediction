@@ -5,15 +5,6 @@ class UNet(BaseModel):
    def input_shape(self):
        return (64, 64, 1)
 
-   @property
-   def data_generator_kwargs(self):
-       return dict(
-            # featurewise_center = True
-            # samplewise_center = True,
-            **super().data_generator_kwargs
-        )
-
-
    def conv_block(self, inputs, block_number, middle_channels, out_channels = None, is_reversing = False):
        """ Conv + ReLU 2 times """
        if out_channels is None:
@@ -32,9 +23,6 @@ class UNet(BaseModel):
                            activation = "relu")(conv_1)
 
            return conv_2
-
-   def filter_series(self, num_filters_init, growth_factor, repeats):
-       return [num_filters_init * int(growth_factor ** i) for i in range(repeats)]
 
    def stack_conv_blocks(self, inputs, filters, pooling_layer = None, apply_last = False):
        conv_block = inputs

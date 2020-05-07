@@ -77,10 +77,14 @@ class TrainValTensorBoard(TensorBoard):
         # `self.val_writer`. Also rename the keys so that they can
         # be plotted on the same figure with the training metrics
         logs = logs or {}
-        print (logs)
+        # print (logs)
         val_logs = {k.replace("val_", ""): v for k, v in logs.items() if k.startswith("val_")}
         for name, value in val_logs.items():
-            self.val_writer.add_summary(tf.summary.scalar(name, value))
+            summary = tf.Summary()
+            summary_value = summary.value.add()
+            summary_value.tag = name
+            summary_value.simple_value = value
+            self.val_writer.add_summary(summary, epoch)
         self.val_writer.flush()
 
         # Pass the remaining logs to `TensorBoard.on_epoch_end`

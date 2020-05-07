@@ -295,3 +295,7 @@ class BaseModel:
 
     def predict(self, X, *argv, **kwargs):
         return self.model.predict(X, *argv, **kwargs)
+
+    def filter_series(self, num_filters_init, growth_factor, repeats):
+        return [num_filters_init * int(growth_factor ** i) for i in range(repeats)]
+
