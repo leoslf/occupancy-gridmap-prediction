@@ -1,3 +1,5 @@
+import io
+import sys
 import os
 import numpy as np
 import pandas as pd
@@ -8,13 +10,12 @@ import functools
 from itertools import *
 from datetime import datetime
 
-# from gridmap.keras_custom_patch import *
+from contextlib import redirect_stdout
+
 import warnings  
 with warnings.catch_warnings():  
-    warnings.filterwarnings("ignore",category=FutureWarning)
-
-    # import keras_preprocessing.image
-    # keras_preprocessing.image.iterator.BatchFromFilesMixin.set_processing_attrs = set_processing_attrs
+    warnings.filterwarnings("ignore", category = FutureWarning)
+    from gridmap.keras_custom_patch import *
 
     import tensorflow as tf
 
@@ -51,24 +52,16 @@ def steps_from_gen(generator):
 def compose(*functions):
     return functools.reduce(lambda f, g: lambda x: f(g(x)), functions, lambda x: x)
 
-def random_center_crop(batch, p = 0.75):
-    img_x, img_y = batch
-    ratio = random.uniform(p, 1.0)
-    size_x = int(img_x.shape[0, 0] * ratio)
-    size_y = int(img_y.shape[0, 0] * ratio)
-
-    # return img_x[:, x
-
-
-def augment_data(pair):
-    pass
-
+def capture_stdout(f):
+    with io.StringIO() as buf, redirect_stdout(buf):
+        f()
+        return buf.getvalue()
 
 class TrainValTensorBoard(TensorBoard):
     def __init__(self, log_dir='./logs', **kwargs):
         # Make the original `TensorBoard` log to a subdirectory 'training'
         training_log_dir = os.path.join(log_dir, "training")
-        super(TrainValTensorBoard, self).__init__(training_log_dir, **kwargs)
+        super().__init__(training_log_dir, **kwargs)
 
         # Log the validation metrics to a separate subdirectory
         self.val_log_dir = os.path.join(log_dir, "validation")
@@ -77,47 +70,52 @@ class TrainValTensorBoard(TensorBoard):
         # Setup writer for validation metrics
         # self.val_writer = tf.summary.create_file_writer(self.val_log_dir)
         self.val_writer = tf.summary.FileWriter(self.val_log_dir)
-        super(TrainValTensorBoard, self).set_model(model)
+        super().set_model(model)
 
     def on_epoch_end(self, epoch, logs=None):
         # Pop the validation logs and handle them separately with
         # `self.val_writer`. Also rename the keys so that they can
         # be plotted on the same figure with the training metrics
         logs = logs or {}
+        print (logs)
         val_logs = {k.replace("val_", ""): v for k, v in logs.items() if k.startswith("val_")}
         for name, value in val_logs.items():
-            tf.summary.scalar(name, value, epoch)
-            # summary = tf.Summary()
-            # summary_value = summary.value.add()
-            # summary_value.simple_value = value.item()
-            # summary_value.tag = name
-            # self.val_writer.add_summary(summary, epoch)
+            self.val_writer.add_summary(tf.summary.scalar(name, value))
         self.val_writer.flush()
 
         # Pass the remaining logs to `TensorBoard.on_epoch_end`
         logs = {k: v for k, v in logs.items() if not k.startswith("val_")}
-        super(TrainValTensorBoard, self).on_epoch_end(epoch, logs)
+        super().on_epoch_end(epoch, logs)
+
+
 
     def on_train_end(self, logs=None):
-        super(TrainValTensorBoard, self).on_train_end(logs)
+        super().on_train_end(logs)
         self.val_writer.close()
 
-mse = MeanSquaredError()
-coord_weight = 0.5
-time_weight = 0.5
-def custom_loss(y_true, y_predict):
-    coord_true, coord_predict = y_true[:, :2], y_predict[:, :2]
-    time_true, time_predict = y_true[:, 2], y_predict[:, 2]
+class PredictionVisualizer(Callback):
+    def __init__(self, prefix, generator, step, log_dir = "./logs", **kwargs):
+        # Make the original `TensorBoard` log to a subdirectory 'training'
+        self.prefix = prefix
+        self.log_dir = os.path.join(log_dir, self.prefix)
+        self.writer = tf.summary.FileWriter(self.log_dir)
+        super().__init__(**kwargs)
 
-    def custom(y_true, y_predict):
-        abs_diff = K.abs(y_true - y_predict)
-        diff_int = tf.floor(abs_diff)
-        diff = abs_diff - diff_int - 0.5
-        lessthan_0_5 = K.cast(K.less_equal(diff, -0.5), tf.float32)
+        self.X, self.ground_truth = generator
+        self.step = step
 
-        error = lessthan_0_5 * (diff + 1) + (1 - lessthan_0_5) * diff
+    def on_epoch_end(self, epoch, logs = None):
+        logs = logs or {}
+        
+        if epoch % self.step == 0:
+            prediction = self.model.predict_generator(self.X)
+            self.write_images({
+                "images": self.X,
+                "ground_truth": self.ground_truth,
+                "prediction": prediction
+            })
 
-        return K.mean(K.abs(error))
+    def write_images(self, dict):
+        for (key, value) in dict.items():
+            self.writer.add_image(key, value)
 
-    # MSE for coordinates, custom for time
-    return coord_weight * K.mean(K.square(coord_true - coord_predict)) + time_weight * custom(time_true, time_predict)

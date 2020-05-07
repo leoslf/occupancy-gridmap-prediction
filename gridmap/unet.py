@@ -9,7 +9,8 @@ class UNet(BaseModel):
    def data_generator_kwargs(self):
        return dict(
             # featurewise_center = True
-            samplewise_center = True,
+            # samplewise_center = True,
+            **super().data_generator_kwargs
         )
 
 

@@ -7,7 +7,7 @@ getenv		= True
 
 name		= __main__
 # main 
-executable 	= /usr/bin/python 
+executable 	= /usr/bin/python3
 # command line arguments
 arguments  = $(name).py --path /public/lfsin3
 # optional file for stdin
