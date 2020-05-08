@@ -9,7 +9,6 @@ import functools
 
 from itertools import *
 from datetime import datetime
-
 from contextlib import redirect_stdout
 
 import warnings  
@@ -34,6 +33,8 @@ with warnings.catch_warnings():
 
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+import imageio
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,43 @@ class TrainValTensorBoard(TensorBoard):
     def on_train_end(self, logs=None):
         super().on_train_end(logs)
         self.val_writer.close()
+
+def grid_length(n):
+    """ Find the length for the square grid to contain all n items """
+    return np.ceil(np.sqrt(n)).astype(int)
+
+def make_grid(images):
+    # logger.info("images.shape: %r", images.shape)
+    batch_size, height, width, intensity = images.shape
+    n = grid_length(batch_size)
+    # logger.info("n: %r", n)
+    nrows = ncols = n
+    # assert batch_size == nrows * ncols
+    result = np.concatenate((images, np.zeros((np.square(n) - batch_size, height, width, intensity))), axis = 0)
+    # result = result.reshape((ncols, nrows, height, width, intensity))
+    # result = np.transpose(result, (1, 0, 2, 3, 4))
+    result = result.reshape((ncols, nrows, height, width, intensity))
+    result = np.transpose(result, (0, 2, 1, 3, 4))
+    result = result.reshape((height * nrows, width * ncols, intensity))
+    # logger.info("result.shape: %r", result.shape)
+    # logger.info("result.min: %r, result.max: %r", np.min(result), np.max(result))
+    return np.uint8(result * 255)
+
+def img_diff(A, B):
+    diff = (A.astype(float) - B.astype(float)) #  / 255
+    pos = diff.copy()
+    neg = diff.copy()
+    pos[pos < 0] = 0
+    neg[neg > 0] = 0
+    neg *= -1
+
+    results = np.zeros((*A.shape[:-1], 3))
+    results[:, :, 0] = pos[:, :, 0]
+    results[:, :, 1] = neg[:, :, 0]
+
+    return np.uint8(results * 255)
+
+    
 
 def make_image(tensor):
     """

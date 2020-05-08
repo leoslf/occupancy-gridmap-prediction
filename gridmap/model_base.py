@@ -23,6 +23,7 @@ class BaseModel:
                  *argv, **kwargs):
 
         self.config = self.prepare_config()
+        self.logdir = self.prepare_logdir()
         self.logger = logging.getLogger(self.name)
 
         self.compiled = compiled
@@ -52,10 +53,12 @@ class BaseModel:
 
         self.construct_model()
 
+        self.train_generator_single_batch = self.get_generator(self.train_img_generator, self.train_df, batch_size = len(self.train_df), interpolation = "lanczos:random_center", **self.generator_kwargs)
+
 
         self.init()
 
-        self.model.compile(loss=self.loss, optimizer=self.optimizer, metrics=self.metrics)
+        # self.model.compile(loss=self.loss, optimizer=self.optimizer, metrics=self.metrics)
 
         try:
             self.load_weights()
@@ -63,11 +66,14 @@ class BaseModel:
             raise ImportError("Could not load pretrained model weights")
 
         if not self.compiled:
-            self.model.compile(loss = self.loss, optimizer = self.optimizer, metrics = self.metrics)
+            self.compile() # self.model)
             self.logger.debug("compiled: %s" % self.name)
 
         self.logger.info(capture_stdout(self.model.summary))
         # self.model.summary()
+
+    def compile(self):
+        self.model.compile(loss = self.loss, optimizer = self.optimizer, metrics = self.metrics)
 
     def construct_model(self):
         self.input_layer = Input(self.input_shape)
@@ -248,8 +254,7 @@ class BaseModel:
 
         return callbacks
 
-    @property
-    def logdir(self):
+    def prepare_logdir(self):
         return "logs/%s/%s" % (self.__class__.__name__, datetime.now().strftime("%Y%m%d-%H%M%S"))
 
     def prepare_model(self):
@@ -302,4 +307,28 @@ class BaseModel:
 
     def filter_series(self, num_filters_init, growth_factor, repeats):
         return [num_filters_init * int(growth_factor ** i) for i in range(repeats)]
+
+    def save_images(self):
+        train_X, train_gt = self.train_generator_single_batch.next()
+        train_X_grid = make_grid(train_X)
+        train_gt_grid = make_grid(train_gt)
+        train_pred_grid = make_grid(self.model.predict(train_X))
+
+        imageio.imwrite("train_X.png", train_X_grid)
+        imageio.imwrite("train_gt.png", train_gt_grid)
+        imageio.imwrite("train_pred.png", train_pred_grid)
+
+        X = train_X_grid / 255
+        gt = train_gt_grid / 255
+        pred = train_pred_grid / 255
+
+        gt_pred = img_diff(gt, pred)
+        x_pred = img_diff(X, pred)
+        x_gt = img_diff(X, gt)
+        
+        imageio.imwrite("gt_pred.png", gt_pred)
+        imageio.imwrite("x_pred.png", x_pred)
+        imageio.imwrite("x_gt.png", x_gt)
+
+
 

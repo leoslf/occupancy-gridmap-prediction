@@ -13,3 +13,4 @@ frontiers_dataset/*
 *.tar.gz
 
 logs/
+*.png

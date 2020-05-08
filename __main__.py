@@ -1,9 +1,12 @@
 from gridmap.unet import *
 from gridmap.residual_fully_conv_vae import *
+from gridmap.gan import *
+import pickle
 
 models = [
-    "ResidualFullyConvVAE",
-    "UNet",
+    "GAN",
+    # "ResidualFullyConvVAE",
+    # "UNet",
 ]
 
 logger = logging.getLogger(__name__)
@@ -12,6 +15,9 @@ def get_model(name, *argv, **kwargs):
     return globals()[name](*argv, **kwargs)
 
 def handle_history(model, history, test_metric, test_metric_value):
+    if not os.path.exists("outputs"):
+        os.mkdir("outputs")
+
     for metric, val_metric in map(tee_val, metrics):
         fig, ax = plt.subplots(1)
 
@@ -46,15 +52,18 @@ if __name__ == "__main__":
         # Training
         history = model.fit_df()
 
-        test_metrics = model.evaluate_df()
+        # TODO
+        # test_metrics = model.evaluate_df()
 
-        test_loss = test_metrics[0]
+        # test_loss = test_metrics[0]
 
-        logger.info("model \"%s\": testing loss: %f", model.name, test_loss)
+        # logger.info("model \"%s\": testing loss: %f", model.name, test_loss)
 
-        losses[model.name] = dict(zip(metrics, test_metrics))
+        # losses[model.name] = dict(zip(metrics, test_metrics))
 
-        handle_history(model, history, "loss", test_loss)
+        # handle_history(model, history, "loss", test_loss)
+
+        # model.save_images()
 
 
     with open("losses.pickle", "wb") as f:
