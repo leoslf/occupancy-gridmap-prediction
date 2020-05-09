@@ -136,7 +136,19 @@ def img_diff(A, B):
 
     return np.uint8(results * 255)
 
-    
+
+def image_string(tensor):
+    image = Image.fromarray(tensor)
+    # output = io.BytesIO()
+    # image.save(output, format='PNG')
+    # image_string = output.getvalue()
+    # output.close()
+    # return image_string
+
+    with io.BytesIO() as f:
+        image.save(f, format = "PNG")
+        return f.getvalue()
+
 
 def make_image(tensor):
     """
@@ -153,41 +165,43 @@ def make_image(tensor):
         channel = 1
 
     # tensor = tensor.astype(np.uint8)
-    image = Image.fromarray(tensor)
-    output = io.BytesIO()
-    image.save(output, format='PNG')
-    image_string = output.getvalue()
-    output.close()
-    return tf.Summary.Image(height=height,
-                         width=width,
-                         colorspace=channel,
-                         encoded_image_string=image_string)
+    return tf.Summary.Image(height = height,
+                            width = width,
+                            colorspace = channel,
+                            encoded_image_string = image_string(tensor))
+
+def generator_to_arrays(generator):
+    batches = steps_from_gen(generator)
+
+    X = []
+    ground_truth = []
+
+
+    for _, (X_batch, ground_truth_batch) in zip(range(batches), generator):
+        X.append(X_batch)
+        ground_truth.append(ground_truth_batch)
+
+    X = np.row_stack(X)
+    ground_truth = np.row_stack(ground_truth)
+
+    return X, ground_truth
+
 
 class PredictionVisualizer(Callback):
-    def __init__(self, prefix, generator, step, log_dir = "./logs", **kwargs):
+    def __init__(self, prefix, X, ground_truth, step = 1, log_dir = "./logs", after_train_only = False, **kwargs):
+        self.after_train_only = after_train_only
         # Make the original `TensorBoard` log to a subdirectory 'training'
         self.prefix = prefix
-        self.log_dir = os.path.join(log_dir, self.prefix)
+        self.log_dir = os.path.join(log_dir, "%s_image" % self.prefix)
         self.writer = tf.summary.FileWriter(self.log_dir)
         super().__init__(**kwargs)
 
         # logger.info("vars(generator): %r", vars(generator))
 
-        # self.X, self.ground_truth = generator
-        self.generator = generator
+        self.X, self.ground_truth = X, ground_truth 
+        # self.generator = generator
         self.step = step
 
-        X = []
-        ground_truth = []
-
-        batches = steps_from_gen(self.generator)
-
-        for _, (X_batch, ground_truth_batch) in zip(range(batches), self.generator):
-            X.append(X_batch)
-            ground_truth.append(ground_truth_batch)
-
-        self.X = np.row_stack(X)
-        self.ground_truth = np.row_stack(ground_truth)
 
         self.write_image("input", self.X, 0)
         self.write_image("ground_truth", self.ground_truth, 0)
@@ -195,27 +209,26 @@ class PredictionVisualizer(Callback):
     def on_epoch_end(self, epoch, logs = None):
         logs = logs or {}
         
-        if epoch % self.step == 0:
+        logger.info("on_epoch_end: epoch %03d: %s", epoch, self.prefix)
+        if epoch % self.step == 0 and not self.after_train_only:
+            logger.info("on_epoch_end: epoch %03d: visualize", epoch)
             prediction = self.model.predict(self.X)
-
+            logger.info("predicted: %r", prediction.shape)
             self.write_images(prediction, epoch)
 
-    def make_grid(self, img_batch, ncols = 8):
-        batch_size, height, width, intensity = K.int_shape(img_batch)
-        nrows = batch_size // ncols
-        assert batch_size == nrows * ncols
-        result = K.reshape(img_batch, (nrows, ncols, height, width, intensity))
-        result = K.permute_dimensions(result, (1, 0, 2, 3, 4))
-        result = K.reshape(result, (1, height * nrows, width * ncols, intensity))
-
-        return result
-
-
     def write_image(self, key, img, epoch):
-        summary = tf.Summary(value = [tf.Summary.Value(tag = key, image = make_image(make_grid(img)))])
-        self.writer.add_summary(summary.eval(), epoch)
+        grid = make_grid(img)
+        summary = tf.Summary(value = [tf.Summary.Value(tag = key, image = make_image(grid))])
+        self.writer.add_summary(summary, epoch)
+        self.writer.flush()
+
+        # Write as png as well
+        imageio.imwrite(os.path.join(self.log_dir, "epoch_%d_grid.png" % epoch), grid)
+
 
     def write_images(self, prediction, epoch):
-
         self.write_image("prediction", prediction, epoch)
+
+    def on_train_end(self, logs = None):
+        self.write_images(self.model.predict(self.X), 0)
 

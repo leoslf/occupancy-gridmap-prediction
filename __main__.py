@@ -4,8 +4,8 @@ from gridmap.gan import *
 import pickle
 
 models = [
-    "GAN",
-    # "ResidualFullyConvVAE",
+    # "GAN",
+    "ResidualFullyConvVAE",
     # "UNet",
 ]
 
@@ -53,17 +53,15 @@ if __name__ == "__main__":
         history = model.fit_df()
 
         # TODO
-        # test_metrics = model.evaluate_df()
+        test_metrics = model.evaluate_df()
 
-        # test_loss = test_metrics[0]
+        test_loss = test_metrics[0]
 
-        # logger.info("model \"%s\": testing loss: %f", model.name, test_loss)
+        logger.info("model \"%s\": testing loss: %f", model.name, test_loss)
 
-        # losses[model.name] = dict(zip(metrics, test_metrics))
+        losses[model.name] = dict(zip(metrics, test_metrics))
 
-        # handle_history(model, history, "loss", test_loss)
-
-        # model.save_images()
+        handle_history(model, history, "loss", test_loss)
 
 
     with open("losses.pickle", "wb") as f:

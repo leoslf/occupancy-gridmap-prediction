@@ -7,7 +7,7 @@ class ResidualFullyConvVAE(BaseModel):
 
     def init(self):
         self.encoder = Model(self.input_layer, [self.latent_mu_layer, self.latent_logvariance_layer, self.latent_representation_layer], name = "%s_encoder" % self.name)
-        self.decoder_input = Input(shape = (self.latent_encoding_channels, ))
+        self.decoder_input = Input(shape = (self.latent_encoding_channels, ), name = "decoder_input")
         self.decoder = Model(self.decoder_input, self.model.layers[-1](self.decoder_input), name = "%s_decoder" % self.name)
 
         # self.model = Model(self.input_layer, self.decoder(self.encoder(self.input_layer)[2]), name = self.name)
@@ -25,12 +25,24 @@ class ResidualFullyConvVAE(BaseModel):
         return self.custom_loss
 
     @property
+    def input_name(self):
+        return "encoder_input"
+
+    @property
     def shortcircuit_connection_type(self):
         return "concat"
 
+    # @property
+    # def class_mode(self):
+    #     return "input" 
+
     @property
     def class_mode(self):
-        return "input" 
+         return "image" 
+
+    @property
+    def use_predictionvisualizer(self):
+        return True
 
     @property
     def shortcircuit_connection_channel_expansion(self):
@@ -56,7 +68,7 @@ class ResidualFullyConvVAE(BaseModel):
                                      output_padding = 1)(inputs)
             deconv = BatchNormalization()(deconv)
 
-            self.logger.info("deconv: %r, forward_layers[%d]: %r", K.int_shape(deconv), block_number - 1, K.int_shape(forward_layers[block_number - 1]))
+            # self.logger.info("deconv: %r, forward_layers[%d]: %r", K.int_shape(deconv), block_number - 1, K.int_shape(forward_layers[block_number - 1]))
             if self.shortcircuit_connection_type == "concat":
                 deconv = concatenate([deconv, forward_layers[block_number - 1]], axis = -1)
             else:
@@ -74,50 +86,54 @@ class ResidualFullyConvVAE(BaseModel):
         conv = inputs
         filters = self.filter_series(8, 2, 3)
         forward_layers = [inputs]
-        for i, num_filters in enumerate(filters, 1):
-            conv = self.conv_bn_block(conv, num_filters, i)
-            forward_layers.append(conv)
+
+        with K.name_scope("Encoder"):
+            for i, num_filters in enumerate(filters, 1):
+                conv = self.conv_bn_block(conv, num_filters, i)
+                forward_layers.append(conv)
         
-        self.latent_encoding_input_layer = conv
+            self.latent_encoding_input_layer = conv
 
-        # Latent Encoding
-        latent_mean_conv = Conv2D(self.latent_encoding_channels,
-                                  kernel_size = (3, 3),
-                                  strides = (2, 2),
-                                  padding = "same")(self.latent_encoding_input_layer)
+            # Latent Encoding
+            latent_mean_conv = Conv2D(self.latent_encoding_channels,
+                                      kernel_size = (3, 3),
+                                      strides = (2, 2),
+                                      padding = "same")(self.latent_encoding_input_layer)
 
-        latent_mean_bn = BatchNormalization()(latent_mean_conv)
-        latent_mean_activation = LeakyReLU(name = "latent_mean")(latent_mean_bn)
-        self.latent_mu_layer = latent_mean_activation
+            latent_mean_bn = BatchNormalization()(latent_mean_conv)
+            latent_mean_activation = LeakyReLU(name = "latent_mean")(latent_mean_bn)
+            self.latent_mu_layer = latent_mean_activation
 
-        latent_logvariance_conv = Conv2D(self.latent_encoding_channels,
-                                         kernel_size = (3, 3),
-                                         strides = (2, 2),
-                                         padding = "same")(self.latent_encoding_input_layer)
-        latent_logvariance_bn = BatchNormalization()(latent_logvariance_conv)
-        latent_logvariance_activation = LeakyReLU(name = "latent_logvariance")(latent_logvariance_bn)
-        self.latent_logvariance_layer = latent_logvariance_activation
+            latent_logvariance_conv = Conv2D(self.latent_encoding_channels,
+                                             kernel_size = (3, 3),
+                                             strides = (2, 2),
+                                             padding = "same")(self.latent_encoding_input_layer)
+            latent_logvariance_bn = BatchNormalization()(latent_logvariance_conv)
+            latent_logvariance_activation = LeakyReLU(name = "latent_logvariance")(latent_logvariance_bn)
+            self.latent_logvariance_layer = latent_logvariance_activation
 
         # Reparametrize
         reparametrized_latent = Lambda(self.reparametrize, name="latent_representation")([latent_mean_activation, latent_logvariance_activation])
         self.latent_representation_layer = reparametrized_latent
 
-        self.logger.info("forward_layers: %r" % list(map(lambda layer: K.int_shape(layer), forward_layers)))
+        # self.logger.info("forward_layers: %r" % list(map(lambda layer: K.int_shape(layer), forward_layers)))
 
         # Decoder
         deconv = reparametrized_latent
         decode_filters = [1] + filters # [:-1]
-        for i, num_filters in zip(reversed(range(len(decode_filters))), reversed(decode_filters)):
-            deconv = self.deconv_bn_block(deconv, num_filters, i + 1, forward_layers)
 
-        deconv = Conv2DTranspose(1,
-                                 kernel_size = (3, 3),
-                                 strides = (1, 1),
-                                 padding = "same",
-                                 output_padding = 0)(deconv)
-        deconv = BatchNormalization()(deconv)
-        deconv = Activation("sigmoid")(deconv)
-        return deconv
+        with K.name_scope("Decoder"):
+            for i, num_filters in zip(reversed(range(len(decode_filters))), reversed(decode_filters)):
+                deconv = self.deconv_bn_block(deconv, num_filters, i + 1, forward_layers)
+
+            deconv = Conv2DTranspose(1,
+                                     kernel_size = (3, 3),
+                                     strides = (1, 1),
+                                     padding = "same",
+                                     output_padding = 0)(deconv)
+            deconv = BatchNormalization()(deconv)
+            deconv = Activation("sigmoid", name = "decoder_output")(deconv)
+            return deconv
 
     def reparametrize(self, argv):
         latent_mean, latent_logvariance = argv

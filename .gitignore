@@ -15,4 +15,4 @@ frontiers_dataset/*
 logs/
 *.png
 logs.bak/
-*.h5
+*.h5*

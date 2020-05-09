@@ -51,6 +51,10 @@ class BaseModel:
         self.validation_generator = self.get_generator(self.test_img_generator, self.validation_df, batch_size = self.config.batch_size, **self.generator_kwargs)
         self.test_generator = self.get_generator(self.test_img_generator, self.testing_df, batch_size = 1, **self.generator_kwargs)
 
+        self.train_X, self.train_gt = generator_to_arrays(self.train_generator)
+        self.validation_X, self.validation_gt = generator_to_arrays(self.validation_generator)
+        self.test_X, self.test_gt = generator_to_arrays(self.test_generator)
+
         self.construct_model()
 
         self.train_generator_single_batch = self.get_generator(self.train_img_generator, self.train_df, batch_size = len(self.train_df), interpolation = "lanczos:random_center", **self.generator_kwargs)
@@ -88,8 +92,12 @@ class BaseModel:
     def compile(self):
         self.model.compile(loss = self.loss, optimizer = self.optimizer, metrics = self.metrics)
 
+    @property
+    def input_name(self):
+        return None
+
     def construct_model(self):
-        self.input_layer = Input(self.input_shape)
+        self.input_layer = Input(self.input_shape, name = self.input_name)
         self.output_layer = self.prepare_model(self.input_layer)
         self.model = Model(self.input_layer, self.output_layer, name = self.name)
 
@@ -256,23 +264,40 @@ class BaseModel:
             self.modelcheckpoint,
             self.tensorboard_class(log_dir = self.logdir, **self.tensorboard_kwargs),
             TerminateOnNaN(),
-            # PredictionVisualizer(
-            #     log_dir = self.logdir,
-            #     prefix = "training",
-            #     generator = self.train_generator,
-            #     step = self.config.vis_step
-            # ),
-            # PredictionVisualizer(
-            #     log_dir = self.logdir,
-            #     prefix = "validation",
-            #     generator = self.validation_generator,
-            #     step = self.config.vis_step
-            # )
         ]
         if self.use_earlystopping:
             callbacks.append(self.earlystopping)
+        if self.use_predictionvisualizer:
+            callbacks.extend([
+                # PredictionVisualizer(
+                #     log_dir = self.logdir,
+                #     prefix = "training",
+                #     # generator = self.train_generator,
+                #     X = self.train_X,
+                #     ground_truth = self.train_gt,
+                #     step = self.config.vis_step
+                # ),
+                PredictionVisualizer(
+                    log_dir = self.logdir,
+                    prefix = "validation",
+                    # generator = self.validation_generator,
+                    X = self.validation_X,
+                    ground_truth = self.validation_gt,
+                    step = self.config.vis_step
+                ),
+                PredictionVisualizer(
+                    log_dir = self.logdir,
+                    prefix = "testing",
+                    X = self.test_X,
+                    ground_truth = self.test_gt,
+                    after_train_only = True),
+            ])
 
         return callbacks
+
+    @property
+    def use_predictionvisualizer(self):
+        return False
 
     def prepare_logdir(self):
         return "logs/%s/%s" % (self.__class__.__name__, datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -291,20 +316,24 @@ class BaseModel:
         self.save_weights()
         return history
 
-    def transform_gen(self, gen):
-        pass
-
     def fit_df(self, **kwargs): 
-        history = self.model.fit_generator(generator = self.train_generator, # zip(*self.train_generator),
-                                           # steps_per_epoch = steps_from_gen(self.train_generator[0]),
-                                           steps_per_epoch = steps_from_gen(self.train_generator),
-                                           # validation_data = zip(*self.validation_generator),
-                                           validation_data = self.validation_generator,
-                                           # validation_steps = steps_from_gen(self.validation_generator[0]),
-                                           validation_steps = steps_from_gen(self.validation_generator),
-                                           epochs = self.epochs,
-                                           callbacks = self.callbacks,
-                                           verbose = self.verbose)
+        history = self.model.fit(self.train_X, self.train_gt,
+                                 validation_data = (self.validation_X, self.validation_gt),
+                                 batch_size = self.config.batch_size,
+                                 epochs = self.epochs,
+                                 callbacks = self.callbacks,
+                                 verbose = self.verbose)
+
+        # history = self.model.fit_generator(generator = self.train_generator, # zip(*self.train_generator),
+        #                                    # steps_per_epoch = steps_from_gen(self.train_generator[0]),
+        #                                    steps_per_epoch = steps_from_gen(self.train_generator),
+        #                                    # validation_data = zip(*self.validation_generator),
+        #                                    validation_data = self.validation_generator,
+        #                                    # validation_steps = steps_from_gen(self.validation_generator[0]),
+        #                                    validation_steps = steps_from_gen(self.validation_generator),
+        #                                    epochs = self.epochs,
+        #                                    callbacks = self.callbacks,
+        #                                    verbose = self.verbose)
         self.save_weights()
         return history
     
@@ -316,11 +345,14 @@ class BaseModel:
 
     def evaluate_df(self, **kwargs):
         # return self.model.evaluate_generator(generator = zip(*self.test_generator),
-        return self.model.evaluate_generator(generator = self.test_generator,
-                                             # steps = steps_from_gen(self.test_generator[0]),
-                                             steps = steps_from_gen(self.test_generator),
-                                             # callbacks = self.callbacks,
-                                             verbose = self.verbose)
+        # return self.model.evaluate_generator(generator = self.test_generator,
+        #                                      # steps = steps_from_gen(self.test_generator[0]),
+        #                                      steps = steps_from_gen(self.test_generator),
+        #                                      # callbacks = self.callbacks,
+        #                                      verbose = self.verbose)
+        return self.model.evaluate(self.test_X, self.test_gt,
+                                   batch_size = self.batch_size,
+                                   verbose = self.verbose)
 
     def predict(self, X, *argv, **kwargs):
         return self.model.predict(X, *argv, **kwargs)
