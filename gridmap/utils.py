@@ -11,6 +11,8 @@ from itertools import *
 from datetime import datetime
 from contextlib import redirect_stdout
 
+from PIL import Image
+
 import warnings  
 with warnings.catch_warnings():  
     warnings.filterwarnings("ignore", category = FutureWarning)
@@ -141,11 +143,17 @@ def make_image(tensor):
     Convert an numpy representation image to Image protobuf.
     Copied from https://github.com/lanpa/tensorboard-pytorch/
     """
-    from PIL import Image
-    logger.info("tensor: %r", tensor)
-    height, width, channel = tensor.shape
+    # logger.info("tensor: %r", tensor)
+    if len(tensor.shape) == 3:
+        height, width, channel = tensor.shape
+        if tensor.shape[2] == 1:
+            tensor = tensor.reshape((height, width))
+    else:
+        height, width = tensor.shape
+        channel = 1
+
+    # tensor = tensor.astype(np.uint8)
     image = Image.fromarray(tensor)
-    import io
     output = io.BytesIO()
     image.save(output, format='PNG')
     image_string = output.getvalue()
@@ -169,19 +177,28 @@ class PredictionVisualizer(Callback):
         self.generator = generator
         self.step = step
 
+        X = []
+        ground_truth = []
+
+        batches = steps_from_gen(self.generator)
+
+        for _, (X_batch, ground_truth_batch) in zip(range(batches), self.generator):
+            X.append(X_batch)
+            ground_truth.append(ground_truth_batch)
+
+        self.X = np.row_stack(X)
+        self.ground_truth = np.row_stack(ground_truth)
+
+        self.write_image("input", self.X, 0)
+        self.write_image("ground_truth", self.ground_truth, 0)
+
     def on_epoch_end(self, epoch, logs = None):
         logs = logs or {}
         
         if epoch % self.step == 0:
-            # prediction = self.model.predict_generator(self.X)
-            prediction = self.model.predict_generator(self.generator)
+            prediction = self.model.predict(self.X)
 
             self.write_images(prediction, epoch)
-            # {
-            #     "input_groundtruth": self.generator,
-            #     # "ground_truth": self.ground_truth,
-            #     "prediction": prediction
-            # }, epoch)
 
     def make_grid(self, img_batch, ncols = 8):
         batch_size, height, width, intensity = K.int_shape(img_batch)
@@ -195,16 +212,10 @@ class PredictionVisualizer(Callback):
 
 
     def write_image(self, key, img, epoch):
-        # image = make_image(img)
-        with tf.Session() as sess:
-            summary = tf.summary.image(key, self.make_grid(img))
-            self.writer.add_summary(summary.eval(), epoch)
+        summary = tf.Summary(value = [tf.Summary.Value(tag = key, image = make_image(make_grid(img)))])
+        self.writer.add_summary(summary.eval(), epoch)
 
     def write_images(self, prediction, epoch):
-        for (X_batch, ground_truth_batch) in self.generator:
-            self.write_image("input", X_batch, epoch)
-            self.write_image("ground_truth", ground_truth_batch, epoch)
 
-        for batch in prediction:
-            self.write_image("prediction", batch, epoch)
+        self.write_image("prediction", prediction, epoch)
 

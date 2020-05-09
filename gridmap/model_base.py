@@ -39,7 +39,7 @@ class BaseModel:
 
         self.train_img_generator = ImageDataGenerator(
                                     preprocessing_function = self.preprocessing_function,
-                                    vertical_flip = True,
+                                    vertical_flip = self.vertical_flip,
                                     **self.data_generator_kwargs)
 
         self.test_img_generator = ImageDataGenerator(
@@ -47,7 +47,7 @@ class BaseModel:
                                     **self.data_generator_kwargs)
 
 
-        self.train_generator = self.get_generator(self.train_img_generator, self.train_df, batch_size = self.config.batch_size, interpolation = "lanczos:random_center", **self.generator_kwargs)
+        self.train_generator = self.get_generator(self.train_img_generator, self.train_df, batch_size = self.config.batch_size, interpolation = self.train_interpolation, **self.generator_kwargs)
         self.validation_generator = self.get_generator(self.test_img_generator, self.validation_df, batch_size = self.config.batch_size, **self.generator_kwargs)
         self.test_generator = self.get_generator(self.test_img_generator, self.testing_df, batch_size = 1, **self.generator_kwargs)
 
@@ -61,7 +61,8 @@ class BaseModel:
         # self.model.compile(loss=self.loss, optimizer=self.optimizer, metrics=self.metrics)
 
         try:
-            self.load_weights()
+            if self.loading_weights:
+                self.load_weights()
         except:
             raise ImportError("Could not load pretrained model weights")
 
@@ -71,6 +72,18 @@ class BaseModel:
 
         self.logger.info(capture_stdout(self.model.summary))
         # self.model.summary()
+
+    @property
+    def train_interpolation(self):
+        return "lanczos:random_center"
+
+    @property
+    def loading_weights(self):
+        return True
+
+    @property
+    def vertical_flip(self):
+        return True
 
     def compile(self):
         self.model.compile(loss = self.loss, optimizer = self.optimizer, metrics = self.metrics)
@@ -163,12 +176,15 @@ class BaseModel:
     def weight_filename(self):
         return "%s.h5" % self.name
 
-    def load_weights(self, filename = None):
+    def load_weights(self, filename = None, model = None):
+        if model is None:
+            model = self.model
+
         if filename is None:
             filename = self.weight_filename
 
         if os.path.exists(filename):
-            self.model.load_weights(filename, by_name=True, skip_mismatch=True)
+            model.load_weights(filename, by_name=True, skip_mismatch=True)
 
     def save_weights(self):
         self.model.save_weights(self.weight_filename)
@@ -203,7 +219,7 @@ class BaseModel:
        # return CustomEarlyStopping(monitor="val_loss", # use validation accuracy for stopping
        return EarlyStopping(monitor = self.monitor_metric, 
                             min_delta = 0.0001,
-                            patience = 20, 
+                            patience = self.earlystopping_patience, 
                             verbose = self.verbose,
                             # target = 
                             mode = self.main_metric_mode)
@@ -218,6 +234,10 @@ class BaseModel:
                                save_weights_only = True,
                                save_best_only = True,
                                mode = self.main_metric_mode)
+
+    @property
+    def earlystopping_patience(self):
+        return 10
 
     @property
     def tensorboard_kwargs(self):
