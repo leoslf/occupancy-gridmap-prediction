@@ -209,11 +209,11 @@ class PredictionVisualizer(Callback):
     def on_epoch_end(self, epoch, logs = None):
         logs = logs or {}
         
-        logger.info("on_epoch_end: epoch %03d: %s", epoch, self.prefix)
+        # logger.info("on_epoch_end: epoch %03d: %s", epoch, self.prefix)
         if epoch % self.step == 0 and not self.after_train_only:
-            logger.info("on_epoch_end: epoch %03d: visualize", epoch)
+            # logger.info("on_epoch_end: epoch %03d: visualize", epoch)
             prediction = self.model.predict(self.X)
-            logger.info("predicted: %r", prediction.shape)
+            # logger.info("predicted: %r", prediction.shape)
             self.write_images(prediction, epoch)
 
     def write_image(self, key, img, epoch):
@@ -223,7 +223,7 @@ class PredictionVisualizer(Callback):
         self.writer.flush()
 
         # Write as png as well
-        imageio.imwrite(os.path.join(self.log_dir, "epoch_%d_grid.png" % epoch), grid)
+        imageio.imwrite(os.path.join(self.log_dir, "%s_epoch_%d_grid.png" % (key, epoch)), grid)
 
 
     def write_images(self, prediction, epoch):

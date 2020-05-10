@@ -7,7 +7,7 @@ root_dir: './frontiers_dataset'
 # Optimization options
 epochs: 1000 # 450
 batch_size: 128
-learning_rate: 1.0e-2 # 1.0e-4
+learning_rate: 1.0e-1 # 1.0e-2 # 1.0e-4
 momentum: 0.9
 decay: 0.001 # Weight decay (L2 penalty)
 schedule: [180, 450] # Decrease learning rate at these epochs.

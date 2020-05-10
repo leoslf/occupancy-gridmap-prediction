@@ -3,13 +3,22 @@ from gridmap.residual_fully_conv_vae import *
 from gridmap.gan import *
 import pickle
 
+import argparse
+
 models = [
-    # "GAN",
     "ResidualFullyConvVAE",
+    # "GAN",
     # "UNet",
 ]
 
 logger = logging.getLogger(__name__)
+
+parser = argparse.ArgumentParser(description="Train and/or run models.")
+parser.add_argument("--save-history", dest="save_history", default=False, action="store_true",
+                   help="save history")
+parser.add_argument("--evaluate", dest="evaluate", default=False, action="store_true",
+                   help="evaluate the model")
+argv = parser.parse_args()
 
 def get_model(name, *argv, **kwargs):
     return globals()[name](*argv, **kwargs)
@@ -41,7 +50,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.DEBUG)
 
-    losses = {}
+    # losses = {}
 
     tee_val = lambda metric: (metric, "val_" + metric)
 
@@ -52,18 +61,18 @@ if __name__ == "__main__":
         # Training
         history = model.fit_df()
 
-        # TODO
-        test_metrics = model.evaluate_df()
+        if argv.evaluate:
+            test_metrics = model.evaluate_df()
 
-        test_loss = test_metrics[0]
+            test_loss = test_metrics[0]
 
-        logger.info("model \"%s\": testing loss: %f", model.name, test_loss)
+            logger.info("model \"%s\": testing loss: %f", model.name, test_loss)
 
-        losses[model.name] = dict(zip(metrics, test_metrics))
+            # losses[model.name] = dict(zip(metrics, test_metrics))
 
-        handle_history(model, history, "loss", test_loss)
+            if argv.save_history:
+                handle_history(model, history, "loss", test_loss)
 
-
-    with open("losses.pickle", "wb") as f:
-        pickle.dump(losses, f)
+    # with open("losses.pickle", "wb") as f:
+    #     pickle.dump(losses, f)
     

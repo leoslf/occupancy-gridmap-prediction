@@ -24,6 +24,12 @@ class BaseModel:
 
         self.config = self.prepare_config()
         self.logdir = self.prepare_logdir()
+        # Create symlink from the logdir to logs/model_name/latest
+        if os.path.islink(self.latest_logdir):
+            os.unlink(self.latest_logdir)
+        os.makedirs(self.logdir)
+        os.symlink(os.path.realpath(self.logdir), self.latest_logdir)
+
         self.logger = logging.getLogger(self.name)
 
         self.compiled = compiled
@@ -300,7 +306,11 @@ class BaseModel:
         return False
 
     def prepare_logdir(self):
-        return "logs/%s/%s" % (self.__class__.__name__, datetime.now().strftime("%Y%m%d-%H%M%S"))
+        return "logs/%s/%s" % (self.name, datetime.now().strftime("%Y%m%d-%H%M%S"))
+
+    @property
+    def latest_logdir(self):
+        return "logs/%s/latest" % self.name
 
     def prepare_model(self):
         return None
@@ -351,14 +361,17 @@ class BaseModel:
         #                                      # callbacks = self.callbacks,
         #                                      verbose = self.verbose)
         return self.model.evaluate(self.test_X, self.test_gt,
-                                   batch_size = self.batch_size,
+                                   batch_size = self.config.batch_size,
                                    verbose = self.verbose)
 
     def predict(self, X, *argv, **kwargs):
         return self.model.predict(X, *argv, **kwargs)
 
-    def filter_series(self, num_filters_init, growth_factor, repeats):
-        return [num_filters_init * int(growth_factor ** i) for i in range(repeats)]
+    def filter_series(self, num_filters_init, growth_factor, repeats, last_repeat = 1):
+        filters = [num_filters_init * int(growth_factor ** i) for i in range(repeats)]
+        last = filters[-1]
+        filters.extend([last for i in range(last_repeat - 1)])
+        return filters
 
     def save_images(self):
         train_X, train_gt = self.train_generator_single_batch.next()

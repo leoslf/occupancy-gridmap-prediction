@@ -9,14 +9,15 @@ name		= __main__
 # main 
 executable 	= /usr/bin/python3
 # command line arguments
-arguments  = $(name).py --save-history --evaluate
+arguments  = $(name).py
+# --save-history --evaluate
 # optional file for stdin
 input      =
 # $(name).in
 # optional file for stdout
-output     = $(name).out
-error      = $(name).err
-log        = $(name).log
-request_gpus = 1
+output     = gan.out
+error      = gan.err
+log        = gan.log
+# request_gpus = 1
 
 queue

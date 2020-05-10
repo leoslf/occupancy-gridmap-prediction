@@ -12,17 +12,23 @@ class ResidualFullyConvVAE(BaseModel):
 
         # self.model = Model(self.input_layer, self.decoder(self.encoder(self.input_layer)[2]), name = self.name)
 
-    def custom_loss(self, inputs, outputs):
+    def custom_loss(self, ground_truth, generated_images):
         dimensions = np.prod(self.input_shape)
-        reconstruction_loss = binary_crossentropy(self.input_layer, self.output_layer) 
-        reconstruction_loss = K.mean(reconstruction_loss) # , (dimensions, ))
+        reconstruction_loss = binary_crossentropy(ground_truth, generated_images) 
+        reconstruction_loss = K.sum(reconstruction_loss)
+        # D_KL(N(\mu, \Sigma) || N(0, 1)) = -\frac{1}{2} \sum_{k} (1 + \Sigma - (\mu)^2 - \exp{\Sigma})
         kl_divergence = 1 + self.latent_logvariance_layer - K.square(self.latent_mu_layer) - K.exp(self.latent_logvariance_layer)
-        kl_divergence = -0.5 * K.sum(kl_divergence) # K.reshape(kl_divergence, (dimensions, )) # K.sum(kl_divergence, axis = -1)
-        return K.mean(reconstruction_loss + kl_divergence)
+        # self.logger.info("kl_divergence: %r", K.int_shape(kl_divergence))
+        kl_divergence = -0.5 * K.sum(kl_divergence)
+        return reconstruction_loss + kl_divergence
 
     @property
     def loss(self):
         return self.custom_loss
+
+    @property
+    def optimizer(self):
+        return Adadelta() # Nadam() # "adam"
 
     @property
     def input_name(self):

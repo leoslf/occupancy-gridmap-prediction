@@ -16,3 +16,4 @@ logs/
 *.png
 logs.bak/
 *.h5*
+*.swp
