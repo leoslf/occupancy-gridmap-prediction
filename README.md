@@ -3,6 +3,7 @@
 To predict 2D occupancy grid map using UNet, VAE, and GAN.
 
 ## Dependencies:
+* tensorflow keras
 * pytorch
 * tensorboardx
 
@@ -34,6 +35,12 @@ It contains about 10,000 images.
     tensorboard --logdir=runs
     ```
     then open the browser...
+
+5. To execute the finalized version implemented in Keras
+
+    ```
+    python3 .
+    ```
 
 ### Further notes ###
 
