@@ -186,6 +186,13 @@ def generator_to_arrays(generator):
 
     return X, ground_truth
 
+def standardize(images):
+    return (images * 2) - 1
+
+def revert_standardize(images):
+    return (images + 1) / 2
+
+
 
 class PredictionVisualizer(Callback):
     def __init__(self, prefix, X, ground_truth, step = 1, log_dir = "./logs", after_train_only = False, **kwargs):
@@ -212,7 +219,7 @@ class PredictionVisualizer(Callback):
         # logger.info("on_epoch_end: epoch %03d: %s", epoch, self.prefix)
         if epoch % self.step == 0 and not self.after_train_only:
             # logger.info("on_epoch_end: epoch %03d: visualize", epoch)
-            prediction = self.model.predict(self.X)
+            prediction = self.predict(self.X)
             # logger.info("predicted: %r", prediction.shape)
             self.write_images(prediction, epoch)
 
@@ -225,10 +232,12 @@ class PredictionVisualizer(Callback):
         # Write as png as well
         imageio.imwrite(os.path.join(self.log_dir, "%s_epoch_%d_grid.png" % (key, epoch)), grid)
 
+    def predict(self, X):
+        return revert_standardize(self.model.predict(standardize(X)))
 
     def write_images(self, prediction, epoch):
         self.write_image("prediction", prediction, epoch)
 
     def on_train_end(self, logs = None):
-        self.write_images(self.model.predict(self.X), 0)
+        self.write_images(self.predict(self.X), 0)
 

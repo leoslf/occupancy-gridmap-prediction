@@ -11,7 +11,7 @@ class GAN(BaseModel):
 
     @property
     def optimizer(self):
-        return Adam(0.0002, 0.5)
+        return Adam(0.0002, beta_1 = 0.5)
 
     @property
     def bn_momentum(self):
@@ -35,7 +35,8 @@ class GAN(BaseModel):
             conv = Conv2D(units,
                           kernel_size = kernel_size,
                           strides = strides,
-                          padding = "same")(inputs)
+                          padding = "same",
+                          kernel_initializer = self.kernel_init)(inputs)
             conv = LeakyReLU(alpha = self.leaky_relu_alpha)(conv)
             if dropout:
                 conv = Dropout(self.dropout_rate)(conv)
@@ -50,8 +51,8 @@ class GAN(BaseModel):
             conv = Conv2DTranspose(filters,
                                    kernel_size = kernel_size,
                                    strides = strides,
-                                   padding = "same")(conv)
-                                   # output_padding = 1)(conv)
+                                   padding = "same",
+                                   kernel_initializer = self.kernel_init)(conv)
             if dropout:
                 conv = Dropout(self.dropout_rate)(conv)
 
@@ -107,7 +108,8 @@ class GAN(BaseModel):
                                      kernel_size = (3, 3),
                                      strides = (1, 1),
                                      padding = "same",
-                                     activation = "tanh")(conv)
+                                     activation = "tanh",
+                                     kernel_initializer = self.kernel_init)(conv)
 
             return output
 
@@ -124,9 +126,10 @@ class GAN(BaseModel):
             conv = self.conv_block(units, conv, i, kernel_size = (3, 3), strides = (2, 2), bn = (i > 1))
 
         output = Conv2D(self.input_shape[-1],
-                        kernel_size = (4, 4),
+                        kernel_size = (3, 3),
                         strides = (1, 1),
-                        padding = "same")(conv)
+                        padding = "same",
+                        kernel_initializer = self.kernel_init)(conv)
 
         return output
 
@@ -215,8 +218,8 @@ class GAN(BaseModel):
     
         batches = steps_from_gen(self.train_generator)
 
-        self.save_images("input", self.validation_X, 0)
-        self.save_images("ground_truth", self.validation_gt, 0)
+        self.save_images("input", self.validation_X, 0, revert = False)
+        self.save_images("ground_truth", self.validation_gt, 0, revert = False)
 
         for epoch in range(0, self.epochs):
             d_losses_epoch = []
@@ -229,6 +232,8 @@ class GAN(BaseModel):
                 # Adversarial ground truths
                 trues = np.ones((batch_size, *self.disc_patch))
                 falses = np.zeros((batch_size, *self.disc_patch))
+
+                X_batch 
 
                 # Generate images
                 generated_images = self.generator.predict(X_batch)
@@ -276,9 +281,13 @@ class GAN(BaseModel):
         
         return dict(d_loss = d_losses, d_accuracy = d_accuracies, g_loss = g_losses) # , g_accuracy = g_accuracies)
 
+    @property
+    def postprocessing(self):
+        return revert_standardize
 
-
-    def save_images(self, key, generated_images, epoch):
+    def save_images(self, key, generated_images, epoch, revert = True):
+        if revert:
+            generated_images = revert_standardize(generated_images)
         grid = make_grid(generated_images)
         imageio.imwrite(os.path.join(self.logdir, "%s_epoch_%d_grid.png" % (key, epoch)), grid)
 

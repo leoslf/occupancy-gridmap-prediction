@@ -6,8 +6,8 @@ import pickle
 import argparse
 
 models = [
-    "ResidualFullyConvVAE",
-    # "GAN",
+    # "ResidualFullyConvVAE",
+    "GAN",
     # "UNet",
 ]
 

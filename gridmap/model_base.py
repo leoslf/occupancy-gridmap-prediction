@@ -84,6 +84,10 @@ class BaseModel:
         # self.model.summary()
 
     @property
+    def kernel_init(self):
+        return RandomNormal(mean=0.0, stddev=0.02)
+
+    @property
     def train_interpolation(self):
         return "lanczos:random_center"
 
@@ -363,9 +367,12 @@ class BaseModel:
         return self.model.evaluate(self.test_X, self.test_gt,
                                    batch_size = self.config.batch_size,
                                    verbose = self.verbose)
+    @property
+    def postprocessing(self):
+        return lambda x: x
 
     def predict(self, X, *argv, **kwargs):
-        return self.model.predict(X, *argv, **kwargs)
+        return self.postprocessing(self.model.predict(X, *argv, **kwargs))
 
     def filter_series(self, num_filters_init, growth_factor, repeats, last_repeat = 1):
         filters = [num_filters_init * int(growth_factor ** i) for i in range(repeats)]
