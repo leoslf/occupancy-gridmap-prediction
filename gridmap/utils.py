@@ -195,7 +195,7 @@ def revert_standardize(images):
 
 
 class PredictionVisualizer(Callback):
-    def __init__(self, prefix, X, ground_truth, step = 1, log_dir = "./logs", after_train_only = False, **kwargs):
+    def __init__(self, prefix, X, ground_truth, step = 1, log_dir = "./logs", after_train_only = False, revert_predict = False, **kwargs):
         self.after_train_only = after_train_only
         # Make the original `TensorBoard` log to a subdirectory 'training'
         self.prefix = prefix
@@ -208,6 +208,7 @@ class PredictionVisualizer(Callback):
         self.X, self.ground_truth = X, ground_truth 
         # self.generator = generator
         self.step = step
+        self.revert_predict = revert_predict
 
 
         self.write_image("input", self.X, 0)
@@ -233,7 +234,10 @@ class PredictionVisualizer(Callback):
         imageio.imwrite(os.path.join(self.log_dir, "%s_epoch_%d_grid.png" % (key, epoch)), grid)
 
     def predict(self, X):
-        return revert_standardize(self.model.predict(standardize(X)))
+        results = self.model.predict(standardize(X))
+        if self.revert_predict:
+            results = revert_standardize(results)
+        return results
 
     def write_images(self, prediction, epoch):
         self.write_image("prediction", prediction, epoch)

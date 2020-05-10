@@ -9,7 +9,7 @@ name		= __main__
 # main 
 executable 	= /usr/bin/python3
 # command line arguments
-arguments  = $(name).py
+arguments  = $(name).py --train
 # --save-history --evaluate
 # optional file for stdin
 input      =
@@ -18,6 +18,6 @@ input      =
 output     = vae.out
 error      = vae.err
 log        = vae.log
-# request_gpus = 1
+request_gpus = 1
 
 queue

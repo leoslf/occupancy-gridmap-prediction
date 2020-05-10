@@ -28,7 +28,7 @@ class ResidualFullyConvVAE(BaseModel):
 
     @property
     def optimizer(self):
-        return Adadelta() # Nadam() # "adam"
+        return "adam" # Adadelta() # Nadam() # "adam"
 
     @property
     def input_name(self):
@@ -59,7 +59,9 @@ class ResidualFullyConvVAE(BaseModel):
             conv = Conv2D(num_filters,
                           kernel_size = (3, 3),
                           strides = (2, 2),
-                          padding = "same")(inputs)
+                          padding = "same",
+                          kernel_initializer = self.kernel_init,
+                          kernel_regularizer = self.regularizer)(inputs)
             bn = BatchNormalization()(conv)
             activation = LeakyReLU()(bn)
 
@@ -71,7 +73,9 @@ class ResidualFullyConvVAE(BaseModel):
                                      kernel_size = (3, 3),
                                      strides = (2, 2),
                                      padding = "same",
-                                     output_padding = 1)(inputs)
+                                     output_padding = 1,
+                                     kernel_initializer = self.kernel_init,
+                                     kernel_regularizer = self.regularizer)(inputs)
             deconv = BatchNormalization()(deconv)
 
             # self.logger.info("deconv: %r, forward_layers[%d]: %r", K.int_shape(deconv), block_number - 1, K.int_shape(forward_layers[block_number - 1]))
@@ -104,7 +108,9 @@ class ResidualFullyConvVAE(BaseModel):
             latent_mean_conv = Conv2D(self.latent_encoding_channels,
                                       kernel_size = (3, 3),
                                       strides = (2, 2),
-                                      padding = "same")(self.latent_encoding_input_layer)
+                                      padding = "same",
+                                      kernel_initializer = self.kernel_init,
+                                      kernel_regularizer = self.regularizer)(self.latent_encoding_input_layer)
 
             latent_mean_bn = BatchNormalization()(latent_mean_conv)
             latent_mean_activation = LeakyReLU(name = "latent_mean")(latent_mean_bn)
@@ -113,7 +119,9 @@ class ResidualFullyConvVAE(BaseModel):
             latent_logvariance_conv = Conv2D(self.latent_encoding_channels,
                                              kernel_size = (3, 3),
                                              strides = (2, 2),
-                                             padding = "same")(self.latent_encoding_input_layer)
+                                             padding = "same",
+                                             kernel_initializer = self.kernel_init,
+                                             kernel_regularizer = self.regularizer)(self.latent_encoding_input_layer)
             latent_logvariance_bn = BatchNormalization()(latent_logvariance_conv)
             latent_logvariance_activation = LeakyReLU(name = "latent_logvariance")(latent_logvariance_bn)
             self.latent_logvariance_layer = latent_logvariance_activation
@@ -136,7 +144,9 @@ class ResidualFullyConvVAE(BaseModel):
                                      kernel_size = (3, 3),
                                      strides = (1, 1),
                                      padding = "same",
-                                     output_padding = 0)(deconv)
+                                     output_padding = 0,
+                                     kernel_initializer = self.kernel_init,
+                                     kernel_regularizer = self.regularizer)(deconv)
             deconv = BatchNormalization()(deconv)
             deconv = Activation("sigmoid", name = "decoder_output")(deconv)
             return deconv

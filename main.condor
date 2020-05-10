@@ -9,7 +9,7 @@ name		= __main__
 # main 
 executable 	= /usr/bin/python3
 # command line arguments
-arguments  = $(name).py --save-history --evaluate
+arguments  = $(name).py --save-history --evaluate --train
 # optional file for stdin
 input      =
 # $(name).in

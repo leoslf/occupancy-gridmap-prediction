@@ -6,8 +6,8 @@ import pickle
 import argparse
 
 models = [
-    # "ResidualFullyConvVAE",
-    "GAN",
+    "ResidualFullyConvVAE",
+    # "GAN",
     # "UNet",
 ]
 
@@ -18,6 +18,10 @@ parser.add_argument("--save-history", dest="save_history", default=False, action
                    help="save history")
 parser.add_argument("--evaluate", dest="evaluate", default=False, action="store_true",
                    help="evaluate the model")
+parser.add_argument("--train", dest="train", default=False, action="store_true",
+                   help="train the model")
+parser.add_argument("--no-train", dest="train", action="store_false",
+                   help="explicit disabling training the model")
 argv = parser.parse_args()
 
 def get_model(name, *argv, **kwargs):
@@ -50,6 +54,8 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.DEBUG)
 
+    logger.info("argv: %r", argv)
+    logger.info("models: %r", models)
     # losses = {}
 
     tee_val = lambda metric: (metric, "val_" + metric)
@@ -58,8 +64,9 @@ if __name__ == "__main__":
     for model in map(get_model, models):
         metrics = ["loss"] + model.metrics
 
-        # Training
-        history = model.fit_df()
+        if argv.train:
+            # Training
+            history = model.fit_df()
 
         if argv.evaluate:
             test_metrics = model.evaluate_df()

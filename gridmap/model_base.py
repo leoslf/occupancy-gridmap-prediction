@@ -57,14 +57,8 @@ class BaseModel:
         self.validation_generator = self.get_generator(self.test_img_generator, self.validation_df, batch_size = self.config.batch_size, **self.generator_kwargs)
         self.test_generator = self.get_generator(self.test_img_generator, self.testing_df, batch_size = 1, **self.generator_kwargs)
 
-        self.train_X, self.train_gt = generator_to_arrays(self.train_generator)
-        self.validation_X, self.validation_gt = generator_to_arrays(self.validation_generator)
-        self.test_X, self.test_gt = generator_to_arrays(self.test_generator)
 
         self.construct_model()
-
-        self.train_generator_single_batch = self.get_generator(self.train_img_generator, self.train_df, batch_size = len(self.train_df), interpolation = "lanczos:random_center", **self.generator_kwargs)
-
 
         self.init()
 
@@ -83,6 +77,14 @@ class BaseModel:
         self.logger.info(capture_stdout(self.model.summary))
         # self.model.summary()
 
+        self.train_X, self.train_gt = generator_to_arrays(self.train_generator)
+        self.validation_X, self.validation_gt = generator_to_arrays(self.validation_generator)
+        self.test_X, self.test_gt = generator_to_arrays(self.test_generator)
+
+        self.train_generator_single_batch = self.get_generator(self.train_img_generator, self.train_df, batch_size = len(self.train_df), interpolation = "lanczos:random_center", **self.generator_kwargs)
+
+
+
     @property
     def kernel_init(self):
         return RandomNormal(mean=0.0, stddev=0.02)
@@ -90,6 +92,10 @@ class BaseModel:
     @property
     def train_interpolation(self):
         return "lanczos:random_center"
+
+    @property
+    def regularizer(self):
+        return l2(0.0002)
 
     @property
     def loading_weights(self):
@@ -269,10 +275,15 @@ class BaseModel:
         return TrainValTensorBoard # instead of the vanilla Tensorboard
 
     @property
+    def tensorboard(self):
+        return self.tensorboard_class(log_dir = self.logdir, **self.tensorboard_kwargs)
+
+
+    @property
     def callbacks(self):
         callbacks = [
             self.modelcheckpoint,
-            self.tensorboard_class(log_dir = self.logdir, **self.tensorboard_kwargs),
+            self.tensorboard,
             TerminateOnNaN(),
         ]
         if self.use_earlystopping:
@@ -293,17 +304,23 @@ class BaseModel:
                     # generator = self.validation_generator,
                     X = self.validation_X,
                     ground_truth = self.validation_gt,
-                    step = self.config.vis_step
+                    step = self.config.vis_step,
+                    revert_predict = self.revert_predict,
                 ),
                 PredictionVisualizer(
                     log_dir = self.logdir,
                     prefix = "testing",
                     X = self.test_X,
                     ground_truth = self.test_gt,
+                    revert_predict = self.revert_predict,
                     after_train_only = True),
             ])
 
         return callbacks
+
+    @property
+    def revert_predict(self):
+        return False
 
     @property
     def use_predictionvisualizer(self):
